@@ -18,16 +18,21 @@ import sys, os
 # when running the file directly (python main.py) relative imports don't work.
 # attempt package import first and fall back to plain import by adjusting sys.path.
 try:
-    from .emotion_engine import detect_emotions
-    from .body_engine import detect_body
-    from .sentence_engine import build_sentence
-except ImportError:
-    pkg_dir = os.path.dirname(__file__)
-    if pkg_dir not in sys.path:
-        sys.path.insert(0, pkg_dir)
     from emotion_engine import detect_emotions
     from body_engine import detect_body
     from sentence_engine import build_sentence
+except ImportError:
+    try:
+        from .emotion_engine import detect_emotions
+        from .body_engine import detect_body
+        from .sentence_engine import build_sentence
+    except ImportError:
+        pkg_dir = os.path.dirname(os.path.abspath(__file__))
+        if pkg_dir not in sys.path:
+            sys.path.insert(0, pkg_dir)
+        from emotion_engine import detect_emotions
+        from body_engine import detect_body
+        from sentence_engine import build_sentence
 
 # ---------------- Global Variables ----------------
 LIKERT_OPTIONS = ["greatly_disagree", "disagree", "neutral", "agree", "greatly_agree"]
@@ -156,7 +161,6 @@ class EmoserApp(TabbedPanel):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.do_default_tab = False
-        Window.clearcolor = BG_COLOR
 
         self.emotion_answers = [None]*len(EMOTION_QUESTIONS)
         self.body_answers = [None]*len(BODY_QUESTIONS)
@@ -612,7 +616,17 @@ class EmoserApp(TabbedPanel):
 # ---------------- Run App ----------------
 class RootApp(App):
     def build(self):
+        try:
+            Window.clearcolor = BG_COLOR
+        except:
+            pass
         return EmoserApp()
 
 if __name__ == "__main__":
-    RootApp().run()
+    try:
+        RootApp().run()
+    except Exception as e:
+        with open("crash_log.txt", "w") as f:
+            import traceback
+            traceback.print_exc(file=f)
+        raise e

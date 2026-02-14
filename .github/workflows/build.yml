@@ -1,0 +1,70 @@
+name: Build APK
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          git \
+          python3-dev \
+          openjdk-11-jdk \
+          android-sdk \
+          wget \
+          unzip \
+          libffi-dev \
+          libssl-dev \
+          libjpeg-dev \
+          zlib1g-dev
+
+    - name: Set up Android environment
+      run: |
+        export ANDROID_SDK_ROOT=/usr/lib/android-sdk
+        export ANDROID_HOME=/usr/lib/android-sdk
+
+    - name: Install Buildozer and dependencies
+      run: |
+        pip install --upgrade pip
+        pip install buildozer cython kivy
+
+    - name: Build APK with Buildozer
+      run: |
+        cd ${{ github.workspace }}
+        buildozer android debug
+      continue-on-error: true
+
+    - name: Upload APK artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: emoser-apk
+        path: bin/*.apk
+        retention-days: 30
+        if-no-files-found: warn
+
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: bin/*.apk
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

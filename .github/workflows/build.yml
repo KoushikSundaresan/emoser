@@ -28,30 +28,54 @@ jobs:
           build-essential \
           git \
           python3-dev \
-          openjdk-11-jdk \
-          android-sdk \
+          openjdk-11-jdk-headless \
           wget \
           unzip \
           libffi-dev \
           libssl-dev \
           libjpeg-dev \
-          zlib1g-dev
-
-    - name: Set up Android environment
-      run: |
-        export ANDROID_SDK_ROOT=/usr/lib/android-sdk
-        export ANDROID_HOME=/usr/lib/android-sdk
+          zlib1g-dev \
+          libpng-dev
 
     - name: Install Buildozer and dependencies
       run: |
         pip install --upgrade pip
-        pip install buildozer cython kivy
+        pip install buildozer cython kivy pyjnius
+
+    - name: Install Android SDK and NDK
+      run: |
+        sudo apt-get install -y openjdk-11-jdk-headless
+        mkdir -p ~/.buildozer/android/platform
+        cd ~/.buildozer/android/platform
+        
+        # Download Android SDK
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-10406996_latest.zip -O tools.zip
+        unzip -q tools.zip
+        rm tools.zip
+        
+        export PATH="$HOME/.buildozer/android/platform/cmdline-tools/bin:$HOME/.buildozer/android/platform/cmdline-tools/latest/bin:$PATH"
+        yes | sdkmanager --licenses 2>/dev/null || true
+        sdkmanager "platforms;android-31" "build-tools;31.0.0" "ndk;21.4.7075529"
+      continue-on-error: true
+
+    - name: Set Android environment variables
+      run: |
+        mkdir -p ~/.buildozer/android/platform/build-tools
+        echo "ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform" >> $GITHUB_ENV
+        echo "ANDROID_HOME=$HOME/.buildozer/android/platform" >> $GITHUB_ENV
+        echo "JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64" >> $GITHUB_ENV
 
     - name: Build APK with Buildozer
       run: |
         cd ${{ github.workspace }}
-        buildozer android debug
+        buildozer android debug 2>&1 | tee build.log
       continue-on-error: true
+
+    - name: Show build log on failure
+      if: failure()
+      run: |
+        cd ${{ github.workspace }}
+        tail -100 build.log 2>/dev/null || cat buildozer.log 2>/dev/null || echo "No logs found"
 
     - name: Upload APK artifact
       uses: actions/upload-artifact@v4

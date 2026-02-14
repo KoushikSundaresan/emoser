@@ -10,48 +10,77 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
-    container:
-      image: kivy/kivy:3.0
-      options: --cpus 4 --memory 8gb
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Build APK with Buildozer (using Kivy container)
-      run: |
-        cd ${{ github.workspace }}
-        buildozer android debug 2>&1 | tee build.log
-        echo "=== Checking for APK ==="
-        ls -la bin/ || echo "No bin/ directory found"
-      continue-on-error: true
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
 
-    - name: Show build diagnostic info
-      if: always()
-      run: |
-        echo "=== Build log tail (last 50 lines) ==="
-        tail -50 build.log 2>/dev/null || echo "No log"
-        echo ""
-        echo "=== bin/ directory listing ==="
-        ls -lah bin/ 2>/dev/null || echo "No bin directory"
-        echo ""
-        echo "=== Current directory contents ==="
-        ls -lah | head -30
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            python3-pip \
+            build-essential \
+            git \
+            python3 \
+            python3-dev \
+            ffmpeg \
+            libsdl2-dev \
+            libsdl2-image-dev \
+            libsdl2-mixer-dev \
+            libsdl2-ttf-dev \
+            libportmidi-dev \
+            libswscale-dev \
+            libavformat-dev \
+            libavcodec-dev \
+            zlib1g-dev \
+            libgstreamer1.0-dev \
+            gstreamer1.0-plugins-base \
+            gstreamer1.0-plugins-good \
+            libssl-dev \
+            libsqlite3-dev \
+            openjdk-17-jdk \
+            autoconf \
+            libtool \
+            pkg-config \
+            libncurses5-dev \
+            libncursesw5-dev \
+            libtinfo5 \
+            cmake \
+            libffi-dev \
+            libltdl-dev
 
-    - name: Upload APK artifact
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: emoser-apk
-        path: bin/*.apk
-        if-no-files-found: ignore
+      - name: Install Buildozer and Dependencies
+        run: |
+          pip install --upgrade pip
+          pip install buildozer cython==0.29.36
+          # Install python-for-android explicitly to pin version if needed, or let buildozer handle it
 
-    - name: Create Release
-      if: startsWith(github.ref, 'refs/tags/')
-      uses: softprops/action-gh-release@v2
-      with:
-        files: bin/*.apk
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build APK with Buildozer
+        run: |
+          # The 'yes' command automatically accepts the SDK license agreement
+          yes | buildozer android debug
+        continue-on-error: true
+
+      - name: List bin directory (Debug)
+        run: |
+          ls -la bin/ || echo "bin directory not found"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: emoser-apk
+          path: bin/*.apk
+          if-no-files-found: warn
+
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: bin/*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

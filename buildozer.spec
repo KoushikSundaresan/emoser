@@ -36,7 +36,7 @@ version = 0.1
 
 # (list) Application requirements
 # comma separated e.g. requirements = sqlite3,kivy
-requirements = python3,kivy
+requirements = python3,kivy,pillow
 
 # (str) Supported orientations
 # Valid values: landscape, sensorLandscape, portrait or sensorPortrait
@@ -81,6 +81,9 @@ android.archs = arm64-v8a,armeabi-v7a
 
 # (bool) Enable AndroidX support
 android.enable_androidx = True
+
+# (bool) Accept SDK license agreements
+android.accept_sdk_license = True
 
 # (str) Android app icon
 # Use 192x192 or higher resolution PNG
